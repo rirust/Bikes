@@ -1,8 +1,8 @@
-package com.ririthenerd;
+package com.rirust;
 
-import com.ririthenerd.bike.BikeEntityModel;
-import com.ririthenerd.bike.BikeEntityRenderer;
-import com.ririthenerd.entities.EntityManager;
+import com.rirust.bike.BikeEntityModel;
+import com.rirust.bike.BikeEntityRenderer;
+import com.rirust.entities.EntityManager;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;

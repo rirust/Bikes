@@ -1,6 +1,6 @@
-package com.ririthenerd.bike;
+package com.rirust.bike;
 
-import com.ririthenerd.entities.BikeEntity;
+import com.rirust.entities.BikeEntity;
 import net.minecraft.client.model.*;
 import net.minecraft.client.render.VertexConsumer;
 import net.minecraft.client.render.entity.model.EntityModel;

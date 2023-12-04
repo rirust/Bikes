@@ -1,42 +1,35 @@
-package com.ririthenerd.entities;
+package com.rirust.entities;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import com.ririthenerd.items.ItemManager;
+import com.google.common.collect.UnmodifiableIterator;
+import com.rirust.items.ItemManager;
 import net.minecraft.block.*;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.MovementType;
+import net.minecraft.enchantment.EnchantmentHelper;
+import net.minecraft.entity.*;
 import net.minecraft.entity.attribute.DefaultAttributeContainer;
 import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.damage.DamageSources;
 import net.minecraft.entity.effect.StatusEffect;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.mob.MobEntity;
-import net.minecraft.entity.mob.PathAwareEntity;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.passive.PassiveEntity;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.vehicle.BoatEntity;
-import net.minecraft.item.Item;
+import net.minecraft.fluid.FluidState;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.registry.tag.BlockTags;
 import net.minecraft.registry.tag.FluidTags;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.sound.SoundEvent;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.*;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 public class BikeEntity extends AnimalEntity {
     public BikeEntity(EntityType<? extends AnimalEntity> entityType, World world) {
@@ -52,6 +45,8 @@ public class BikeEntity extends AnimalEntity {
     private double clientXVelocity;
     private double clientYVelocity;
     private double clientZVelocity;
+    private static final ImmutableMap<EntityPose, ImmutableList<Integer>> DISMOUNT_FREE_Y_SPACES_NEEDED;
+    private boolean yawFlipped;
 
     protected UUID ownerUUID;
     protected boolean locked = false;
@@ -173,12 +168,13 @@ public class BikeEntity extends AnimalEntity {
         nbt.putInt("maxFrontGear", maxFrontGear);
     }
 
+    //ABSTRACT MINECART ENTITY
     public void updateTrackedPositionAndAngles(double x, double y, double z, float yaw, float pitch, int interpolationSteps, boolean interpolate) {
         this.clientX = x;
         this.clientY = y;
         this.clientZ = z;
-        this.clientYaw = yaw;
-        this.clientPitch = pitch;
+        this.clientYaw = (double)yaw;
+        this.clientPitch = (double)pitch;
         this.clientInterpolationSteps = interpolationSteps + 2;
         this.setVelocity(this.clientXVelocity, this.clientYVelocity, this.clientZVelocity);
     }
@@ -190,26 +186,23 @@ public class BikeEntity extends AnimalEntity {
         this.setVelocity(this.clientXVelocity, this.clientYVelocity, this.clientZVelocity);
     }
 
+    @Override
     public void tick() {
-        double d;
+        super.tick();
+        this.attemptTickInVoid();
+        this.tickPortal();
         if (this.getWorld().isClient) {
             if (this.clientInterpolationSteps > 0) {
-                d = this.getX() + (this.clientX - this.getX()) / (double)this.clientInterpolationSteps;
-                double e = this.getY() + (this.clientY - this.getY()) / (double)this.clientInterpolationSteps;
-                double f = this.getZ() + (this.clientZ - this.getZ()) / (double)this.clientInterpolationSteps;
-                double g = MathHelper.wrapDegrees(this.clientYaw - (double)this.getYaw());
-                this.setYaw(this.getYaw() + (float)g / (float)this.clientInterpolationSteps);
-                this.setPitch(this.getPitch() + (float)(this.clientPitch - (double)this.getPitch()) / (float)this.clientInterpolationSteps);
+                this.lerpPosAndRotation(this.clientInterpolationSteps, this.clientX, this.clientY, this.clientZ, this.clientYaw, this.clientPitch);
                 --this.clientInterpolationSteps;
-                this.setPosition(d, e, f);
-                this.setRotation(this.getYaw(), this.getPitch());
             } else {
                 this.refreshPosition();
                 this.setRotation(this.getYaw(), this.getPitch());
             }
+
         } else {
             if (!this.hasNoGravity()) {
-                d = this.isTouchingWater() ? -0.005 : -0.04;
+                double d = this.isTouchingWater() ? -0.005 : -0.04;
                 this.setVelocity(this.getVelocity().add(0.0, d, 0.0));
             }
 
@@ -226,10 +219,71 @@ public class BikeEntity extends AnimalEntity {
             }
 
             pedal();
-
         }
     }
 
+    public Vec3d updatePassengerForDismount(LivingEntity passenger) {
+        Direction direction = this.getMovementDirection();
+        if (direction.getAxis() == Direction.Axis.Y) {
+            return super.updatePassengerForDismount(passenger);
+        } else {
+            int[][] is = Dismounting.getDismountOffsets(direction);
+            BlockPos blockPos = this.getBlockPos();
+            BlockPos.Mutable mutable = new BlockPos.Mutable();
+            ImmutableList<EntityPose> immutableList = passenger.getPoses();
+            UnmodifiableIterator var7 = immutableList.iterator();
+
+            while(var7.hasNext()) {
+                EntityPose entityPose = (EntityPose)var7.next();
+                EntityDimensions entityDimensions = passenger.getDimensions(entityPose);
+                float f = Math.min(entityDimensions.width, 1.0F) / 2.0F;
+                UnmodifiableIterator var11 = ((ImmutableList)DISMOUNT_FREE_Y_SPACES_NEEDED.get(entityPose)).iterator();
+
+                while(var11.hasNext()) {
+                    int i = (Integer)var11.next();
+                    int[][] var13 = is;
+                    int var14 = is.length;
+
+                    for(int var15 = 0; var15 < var14; ++var15) {
+                        int[] js = var13[var15];
+                        mutable.set(blockPos.getX() + js[0], blockPos.getY() + i, blockPos.getZ() + js[1]);
+                        double d = this.getWorld().getDismountHeight(Dismounting.getCollisionShape(this.getWorld(), mutable), () -> {
+                            return Dismounting.getCollisionShape(this.getWorld(), mutable.down());
+                        });
+                        if (Dismounting.canDismountInBlock(d)) {
+                            Box box = new Box((double)(-f), 0.0, (double)(-f), (double)f, (double)entityDimensions.height, (double)f);
+                            Vec3d vec3d = Vec3d.ofCenter(mutable, d);
+                            if (Dismounting.canPlaceEntityAt(this.getWorld(), passenger, box.offset(vec3d))) {
+                                passenger.setPose(entityPose);
+                                return vec3d;
+                            }
+                        }
+                    }
+                }
+            }
+
+            double e = this.getBoundingBox().maxY;
+            mutable.set((double)blockPos.getX(), e, (double)blockPos.getZ());
+            UnmodifiableIterator var22 = immutableList.iterator();
+
+            while(var22.hasNext()) {
+                EntityPose entityPose2 = (EntityPose)var22.next();
+                double g = (double)passenger.getDimensions(entityPose2).height;
+                int j = MathHelper.ceil(e - (double)mutable.getY() + g);
+                double h = Dismounting.getCeilingHeight(mutable, j, (pos) -> {
+                    return this.getWorld().getBlockState(pos).getCollisionShape(this.getWorld(), pos);
+                });
+                if (e + g <= h) {
+                    passenger.setPose(entityPose2);
+                    break;
+                }
+            }
+
+            return super.updatePassengerForDismount(passenger);
+        }
+    }
+
+    //Living Entity
     public void travel(Vec3d movementInput) {
         if (this.isLogicalSideForUpdatingMovement()) {
             double d = 0.08;
@@ -238,12 +292,27 @@ public class BikeEntity extends AnimalEntity {
                 d = 0.01;
             }
 
+            FluidState fluidState = this.getWorld().getFluidState(this.getBlockPos());
             float f;
             double e;
-            if (this.isTouchingWater() && this.shouldSwimInFluids() && !this.canWalkOnFluid()) {
+            if (this.isTouchingWater() && this.shouldSwimInFluids() && !this.canWalkOnFluid(fluidState)) {
                 e = this.getY();
                 f = this.isSprinting() ? 0.9F : this.getBaseMovementSpeedMultiplier();
                 float g = 0.02F;
+                float h = (float)EnchantmentHelper.getDepthStrider(this);
+                if (h > 3.0F) {
+                    h = 3.0F;
+                }
+
+                if (!this.isOnGround()) {
+                    h *= 0.5F;
+                }
+
+                if (h > 0.0F) {
+                    f += (0.54600006F - f) * h / 3.0F;
+                    g += (this.getMovementSpeed() - g) * h / 3.0F;
+                }
+
                 if (this.hasStatusEffect(StatusEffects.DOLPHINS_GRACE)) {
                     f = 0.96F;
                 }
@@ -255,13 +324,13 @@ public class BikeEntity extends AnimalEntity {
                     vec3d = new Vec3d(vec3d.x, 0.2, vec3d.z);
                 }
 
-                this.setVelocity(vec3d.multiply(f, 0.800000011920929, f));
+                this.setVelocity(vec3d.multiply((double)f, 0.800000011920929, (double)f));
                 Vec3d vec3d2 = this.applyFluidMovingSpeed(d, bl, this.getVelocity());
                 this.setVelocity(vec3d2);
                 if (this.horizontalCollision && this.doesNotCollide(vec3d2.x, vec3d2.y + 0.6000000238418579 - this.getY() + e, vec3d2.z)) {
                     this.setVelocity(vec3d2.x, 0.30000001192092896, vec3d2.z);
                 }
-            } else if (this.isInLava() && this.shouldSwimInFluids() && !this.canWalkOnFluid()) {
+            } else if (this.isInLava() && this.shouldSwimInFluids() && !this.canWalkOnFluid(fluidState)) {
                 e = this.getY();
                 this.updateVelocity(0.02F, movementInput);
                 this.move(MovementType.SELF, this.getVelocity());
@@ -290,7 +359,7 @@ public class BikeEntity extends AnimalEntity {
                 double i = Math.sqrt(vec3d5.x * vec3d5.x + vec3d5.z * vec3d5.z);
                 double j = vec3d4.horizontalLength();
                 double k = vec3d5.length();
-                double l = Math.cos(f);
+                double l = Math.cos((double)f);
                 l = l * l * Math.min(1.0, k / 0.4);
                 vec3d4 = this.getVelocity().add(0.0, d * (-1.0 + l * 0.75), 0.0);
                 double m;
@@ -339,12 +408,20 @@ public class BikeEntity extends AnimalEntity {
                 } else if (!this.hasNoGravity()) {
                     q -= d;
                 }
-                this.setVelocity(vec3d6.x * (double)f, q * 0.9800000190734863, vec3d6.z * (double)f);
+
+                if (this.hasNoDrag()) {
+                    this.setVelocity(vec3d6.x, q, vec3d6.z);
+                } else {
+                    this.setVelocity(vec3d6.x * (double)f, q * 0.9800000190734863, vec3d6.z * (double)f);
+                }
             }
         }
+
+        this.updateLimbs(this instanceof Flutterer);
     }
+
     private void pedal(){
-        if(this.hasPassengers()){
+        if(this.hasPassengers()){ //AbstractHorseEntity getControlledMovementInput()
             PlayerEntity p = (PlayerEntity) this.getFirstPassenger();
 
             assert p != null;
@@ -356,11 +433,11 @@ public class BikeEntity extends AnimalEntity {
                 g *= 0.25F;
             }
 
-            Vec3d v = new Vec3d(f, 0.0, g);
-            if(f > 0 || f < 0 || g < 0){
-                this.setVelocity(Vec3d.ZERO);
-            }else{
+            Vec3d v = new Vec3d(f, 0.0, g); //Usually returns this to be used in LivingEntity travelControlled()
+            if(g > 0 && f == 0){
                 this.travel(v);
+            }else{
+                this.setVelocity(Vec3d.ZERO);
             }
         }
     }
@@ -377,16 +454,23 @@ public class BikeEntity extends AnimalEntity {
     public boolean canWalkOnFluid() {
         return false;
     }
+
     protected float getBaseMovementSpeedMultiplier() {
         return 1f;
     }
 
     public void changeGear(boolean rearGear, int amt){
         if(rearGear){
-            this.rearGear = this.rearGear + amt;
-        }else{
-            this.frontGear = this.frontGear + amt;
+            if(!(this.rearGear + amt <= 0)){
+                if(!(this.rearGear + amt > this.maxRearGear)){
+                    this.rearGear = this.rearGear + amt;
+                }
+            }
         }
+    }
+
+    public void setMaxRearGear(int amt){
+        this.maxRearGear = amt;
     }
 
     private Optional<BlockPos> climbingPos;
@@ -400,6 +484,7 @@ public class BikeEntity extends AnimalEntity {
 
         return false;
     }
+
     public boolean isClimbing() {
         if (this.isSpectator()) {
             return false;
@@ -479,4 +564,9 @@ public class BikeEntity extends AnimalEntity {
 
         return motion;
     }
+
+    static {
+        DISMOUNT_FREE_Y_SPACES_NEEDED = ImmutableMap.of(EntityPose.STANDING, ImmutableList.of(0, 1, -1), EntityPose.CROUCHING, ImmutableList.of(0, 1, -1), EntityPose.SWIMMING, ImmutableList.of(0, 1));
+    }
+
 }

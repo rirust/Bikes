@@ -1,6 +1,6 @@
-package com.ririthenerd.bike;
+package com.rirust.bike;
 
-import com.ririthenerd.Bikes;
+import com.rirust.Bikes;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.render.OverlayTexture;

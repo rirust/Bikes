@@ -1,4 +1,4 @@
-package com.ririthenerd.mixin.client;
+package com.rirust.mixin.client;
 
 import net.minecraft.client.MinecraftClient;
 import org.spongepowered.asm.mixin.Mixin;

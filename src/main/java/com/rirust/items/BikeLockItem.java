@@ -1,4 +1,4 @@
-package com.ririthenerd.items;
+package com.rirust.items;
 
 import net.minecraft.item.Item;
 

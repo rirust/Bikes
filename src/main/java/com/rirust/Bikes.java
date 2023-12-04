@@ -1,9 +1,9 @@
-package com.ririthenerd;
+package com.rirust;
 
-import com.ririthenerd.entities.BikeEntity;
-import com.ririthenerd.entities.EntityManager;
-import com.ririthenerd.items.ItemManager;
-import com.ririthenerd.networking.NetworkHandler;
+import com.rirust.entities.BikeEntity;
+import com.rirust.entities.EntityManager;
+import com.rirust.items.ItemManager;
+import com.rirust.networking.NetworkHandler;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 

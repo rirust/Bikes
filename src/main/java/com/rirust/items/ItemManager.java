@@ -1,6 +1,6 @@
-package com.ririthenerd.items;
+package com.rirust.items;
 
-import com.ririthenerd.Bikes;
+import com.rirust.Bikes;
 import net.fabricmc.fabric.api.item.v1.FabricItemSettings;
 import net.minecraft.item.Item;
 import net.minecraft.registry.Registries;

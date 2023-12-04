@@ -1,8 +1,7 @@
-package com.ririthenerd.entities;
+package com.rirust.entities;
 
-import com.ririthenerd.Bikes;
+import com.rirust.Bikes;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricEntityTypeBuilder;
-import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityDimensions;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnGroup;

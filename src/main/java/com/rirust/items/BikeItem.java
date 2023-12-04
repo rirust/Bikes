@@ -1,10 +1,7 @@
-package com.ririthenerd.items;
+package com.rirust.items;
 
-import com.ririthenerd.entities.BikeEntity;
-import com.ririthenerd.entities.EntityManager;
-import net.minecraft.entity.EntityType;
-import net.minecraft.entity.LightningEntity;
-import net.minecraft.entity.passive.PigEntity;
+import com.rirust.entities.BikeEntity;
+import com.rirust.entities.EntityManager;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemUsageContext;
 import net.minecraft.util.ActionResult;
@@ -24,6 +21,7 @@ public class BikeItem extends Item {
         bike.setPosition(new Vec3d(context.getBlockPos().getX(), context.getBlockPos().getY() + 1, context.getBlockPos().getZ()));
         bike.changeGear(true, 4);
         bike.changeGear(false, 2);
+        bike.setMaxRearGear(7);
 
         context.getWorld().spawnEntity(bike);
         context.getPlayer().getMainHandStack().decrement(1);

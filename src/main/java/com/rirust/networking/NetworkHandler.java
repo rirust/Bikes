@@ -1,8 +1,8 @@
-package com.ririthenerd.networking;
+package com.rirust.networking;
 
-import com.ririthenerd.Bikes;
-import com.ririthenerd.networking.packets.shifting.ShiftDownC2SPacket;
-import com.ririthenerd.networking.packets.shifting.ShiftUpC2SPacket;
+import com.rirust.Bikes;
+import com.rirust.networking.packets.shifting.ShiftDownC2SPacket;
+import com.rirust.networking.packets.shifting.ShiftUpC2SPacket;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.util.Identifier;
 
